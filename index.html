@@ -1,4 +1,11 @@
-<style>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notion Dynamic Shipping Widget</title>
+    
+    <style>
         /* 1. 全体の設定: Notionに馴染ませる */
         body {
             margin: 0;
@@ -30,28 +37,23 @@
             font-weight: 600;
             color: #ffffff; 
             border-right: 1px solid rgba(255, 255, 255, 0.2); 
-            border-bottom: 2px solid #e0e0e0;
-            /* ★ 文字間隔の調整 */
-            letter-spacing: 0.5px; 
+            border-bottom: 2px solid #e0e0e0; 
         }
         /* 各列の背景色をスプシに合わせる */
-        .shipping-table th:nth-child(1) { background-color: #555555; }
-        .shipping-table th:nth-child(2) { background-color: #e74c3c; }
-        .shipping-table th:nth-child(3) { background-color: #9b59b6; }
-        .shipping-table th:nth-child(4) { background-color: #2ecc71; }
+        .shipping-table th:nth-child(1) { background-color: #555555; } /* 今日 (濃いグレー) */
+        .shipping-table th:nth-child(2) { background-color: #e74c3c; } /* 7日前 (赤系) */
+        .shipping-table th:nth-child(3) { background-color: #9b59b6; } /* 支払期日 (紫系) */
+        .shipping-table th:nth-child(4) { background-color: #2ecc71; } /* 最短発送 (緑系) */
         
         /* 4. データ行のデザイン */
         .shipping-table td {
             padding: 15px 10px;
             text-align: center;
             background-color: #ffffff; 
-            /* ★ フォントサイズを拡大 */
-            font-size: 1.4rem; 
+            font-size: 1.2rem; 
             font-weight: bold;
             color: #24292e;
             border-right: 1px solid #e0e0e0;
-            /* ★ 文字間隔の調整 */
-            letter-spacing: 0.8px; 
         }
 
         /* 最後の列の境界線は不要 */
@@ -70,3 +72,99 @@
             }
         }
     </style>
+</head>
+<body>
+
+    <div id="widget-container">
+        <p style="text-align: center; font-size: 14px;">日付データを読み込み中...</p>
+    </div>
+
+    <script>
+        // 【提供されたスプレッドシートのCSV公開URL】
+        const SPREADSHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQaZcBcRA1Xy1-j5U2rZSopx7Oo1yVxuvXUZA8IBhs3U-mGnEaQhA2eUVBtK53zngWyq_bCBlEHfu3-/pub?gid=1757125327&single=true&output=csv'; 
+        
+        // ----------------------------------------------------
+        // スクリプトの実行ロジック
+        // ----------------------------------------------------
+        
+        // CSVのパースとデータ取得
+        async function fetchAndParseData() {
+            try {
+                const response = await fetch(SPREADSHEET_CSV_URL);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch spreadsheet data.');
+                }
+                const csvText = await response.text();
+                
+                // CSVを行ごとに分割し、最初のデータ行（日付が入っている行）を取得
+                const rows = csvText.trim().split('\n');
+                // CSVはカンマ区切り（,）で、データは2行目（インデックス1）にあると仮定します。
+                const dataRow = rows.length > 1 ? rows[1].split(',') : [];
+
+                // セルの位置（スプレッドシートの列インデックスからCSVの配列インデックスに変換）
+                // B2=1, D2=3, G2=6, I2=8, K2=10
+                // (CSVは0から始まるため、A=0, B=1, C=2, D=3...と数えます)
+
+                const parsedData = {
+                    today: dataRow[1] || '---',       // B列 (Index 1)
+                    plus7: dataRow[3] || '---',       // D列 (Index 3)
+                    plus14: dataRow[6] || '---',      // G列 (Index 6)
+                    shipBefore: dataRow[8] || '---',  // I列 (Index 8)
+                    shipAfter: dataRow[10] || '---'   // K列 (Index 10)
+                };
+
+                renderWidget(parsedData);
+
+            } catch (error) {
+                console.error("Data fetch error:", error);
+                document.getElementById('widget-container').innerHTML = 
+                    '<p style="color: #e74c3c; text-align: center;">データを読み込めませんでした。スプシの公開設定を確認してください。</p>';
+            }
+        }
+
+        // HTMLレンダリングロジック（時間判定含む）
+        function renderWidget(data) {
+            const now = new Date();
+            // 15時30分を判定 (時*60 + 分)
+            const CUTOFF_TIME_MINUTES = 15 * 60 + 30; 
+            const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
+            const isAfterCutoff = currentTimeMinutes >= CUTOFF_TIME_MINUTES;
+            
+            let headers = [];
+            let rowData = [];
+            
+            // 1. 固定の3列を追加
+            headers.push("今日は", "定期停止 7日前", "違約金の支払期日");
+            rowData.push(data.today, data.plus7, data.plus14);
+
+            // 2. 時刻で最短発送日の列を切り替え（動的な列）
+            if (isAfterCutoff) {
+                // 15:30以降の場合（翌々営業日を表示）
+                headers.push("最短発送");
+                rowData.push(data.shipAfter);
+            } else {
+                // 15:30までの場合（翌営業日を表示）
+                headers.push("最短発送");
+                rowData.push(data.shipBefore);
+            }
+            
+            // 3. HTMLテーブルを生成
+            const container = document.getElementById('widget-container');
+            container.innerHTML = `
+                <table class="shipping-table">
+                    <thead>
+                        <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
+                    </thead>
+                    <tbody>
+                        <tr>${rowData.map(d => `<td>${d}</td>`).join('')}</tr>
+                    </tbody>
+                </table>
+            `;
+        }
+
+        // ページロード時と1分ごとに実行
+        fetchAndParseData();
+        setInterval(fetchAndParseData, 60000); // 60秒ごとに更新
+    </script>
+</body>
+</html>
