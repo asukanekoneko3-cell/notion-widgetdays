@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notion Shipping Widget</title>
+    <style>
+        /* 1. 全体の設定: Notionに馴染ませる */
+        body {
+            margin: 0;
+            padding: 10px;
+            background-color: transparent; /* 背景を透明にしてNotionに合わせる */
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: #37352f; /* Notionのデフォルト文字色 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100px;
+        }
+        
+        /* 2. テーブル（表）のデザイン */
+        .shipping-table {
+            width: 100%;
+            border-collapse: collapse; /* セルの境界線を結合 */
+            border: 1px solid #e0e0e0; /* 外枠 */
+            border-radius: 6px; /* 角を丸くする */
+            overflow: hidden; /* 角丸を適用 */
+        }
+        
+        .shipping-table th, .shipping-table td {
+            padding: 12px 8px;
+            text-align: center;
+            border-right: 1px solid #e0e0e0;
+        }
+        
+        .shipping-table th:last-child, .shipping-table td:last-child {
+            border-right: none;
+        }
+
+        /* 3. ヘッダー（タイトル行）のデザイン */
+        .shipping-table th {
+            background-color: #f7f7f7; /* ヘッダーの背景色 */
+            font-size: 14px;
+            font-weight: 600;
+            color: #37352f;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        /* 4. データ行のデザイン */
+        .shipping-table td {
+            background-color: #ffffff;
+            font-size: 18px;
+            font-weight: bold;
+            color: #24292e;
+        }
+        
+        /* 5. ダークモード対応（Notionがダークモードの場合に自動で切り替わる） */
+        @media (prefers-color-scheme: dark) {
+            body { color: #ffffff; }
+            .shipping-table { border: 1px solid #4d4d4d; }
+            .shipping-table th { background-color: #333333; color: #ffffff; border-bottom-color: #4d4d4d; }
+            .shipping-table th, .shipping-table td { border-right-color: #4d4d4d; }
+            .shipping-table td { background-color: #191919; color: #ffffff; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="widget-container">
+        <p>日付データを取得中です...</p>
+    </div>
+
+    <script>
+        // 【重要】
+        // ここにスプレッドシートの公開URLを設定してください。
+        // ※CSV形式で公開したときのURLです。
+        const SPREADSHEET_CSV_URL = '【ここにCSV公開URLを貼り付け】'; 
+        
+        // ----------------------------------------------------
+        // スクリプトの実行ロジック
+        // ----------------------------------------------------
+        
+        // 仮のデータ（デバッグ用）- 実際はCSVから取得します
+        const mockData = {
+            today: "12月9日",
+            plus7: "12月16日火曜日",
+            plus14: "12月23日火曜日",
+            shipBefore: "12月10日水曜日", // 15:30まで (I2)
+            shipAfter: "12月11日木曜日"  // 15:31以降 (K2)
+        };
+
+
+        function renderWidget(data) {
+            const now = new Date();
+            // 15時30分を判定 (時*60 + 分)
+            // 比較基準の時刻（15:30 = 930分）
+            const CUTOFF_TIME_MINUTES = 15 * 60 + 30; 
+            
+            // 現在の時刻（分単位）
+            const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
+            
+            // 15時30分以降かどうか
+            const isAfterCutoff = currentTimeMinutes >= CUTOFF_TIME_MINUTES;
+            
+            let headers = [];
+            let rowData = [];
+            
+            // 1. 固定の3列を追加
+            headers.push("今日は", "定期停止 7日前", "違約金の支払期日");
+            rowData.push(data.today, data.plus7, data.plus14);
+
+            // 2. 時刻で最短発送日の列を切り替え（動的な列）
+            if (isAfterCutoff) {
+                // 15:30以降の場合（翌々営業日を表示）
+                headers.push("最短発送");
+                rowData.push(data.shipAfter);
+            } else {
+                // 15:30までの場合（翌営業日を表示）
+                headers.push("最短発送");
+                rowData.push(data.shipBefore);
+            }
+            
+            // 3. HTMLテーブルを生成
+            const container = document.getElementById('widget-container');
+            container.innerHTML = `
+                <table class="shipping-table">
+                    <thead>
+                        <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
+                    </thead>
+                    <tbody>
+                        <tr>${rowData.map(d => `<td>${d}</td>`).join('')}</tr>
+                    </tbody>
+                </table>
+            `;
+        }
+
+        /**
+         * 実際のスプレッドシートからCSVデータを取得する関数
+         * (※ CORS制限があるため、ローカルや一部環境では動作しない場合があります。
+         * その場合はモックデータで進めます。)
+         */
+        function fetchSpreadsheetDataAndRender() {
+            // スプシからのデータ取得は、公開範囲やCORSポリシーにより、
+            // Vercelなどの外部サーバー経由でないと動作しないことがあります。
+            // 確実な実装のために、今回は一旦、上記の **mockData** を使用して
+            // ロジックが正しく動くかを確認しましょう。
+
+            // 【データ取得を省略し、モックデータで動作確認します】
+            renderWidget(mockData);
+            
+            // 1分ごとに表示を更新 (15:30の境界線をまたいだときに切り替わるように)
+            setInterval(() => renderWidget(mockData), 60000);
+        }
+
+        // 初期実行
+        fetchSpreadsheetDataAndRender();
+    </script>
+</body>
+</html>
