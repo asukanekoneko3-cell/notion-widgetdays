@@ -14,6 +14,8 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             color: #37352f; 
             display: flex;
+            /* テーブルの上部に時刻を表示するため、Flexboxの方向を縦に変更 */
+            flex-direction: column; 
             justify-content: center;
             align-items: center;
             min-height: 100px;
@@ -37,23 +39,28 @@
             font-weight: 600;
             color: #ffffff; 
             border-right: 1px solid rgba(255, 255, 255, 0.2); 
-            border-bottom: 2px solid #e0e0e0; 
+            border-bottom: 2px solid #e0e0e0;
+            /* ★ 文字間隔調整 */
+            letter-spacing: 0.5px; 
         }
         /* 各列の背景色をスプシに合わせる */
-        .shipping-table th:nth-child(1) { background-color: #555555; } /* 今日 (濃いグレー) */
-        .shipping-table th:nth-child(2) { background-color: #e74c3c; } /* 7日前 (赤系) */
-        .shipping-table th:nth-child(3) { background-color: #9b59b6; } /* 支払期日 (紫系) */
-        .shipping-table th:nth-child(4) { background-color: #2ecc71; } /* 最短発送 (緑系) */
+        .shipping-table th:nth-child(1) { background-color: #555555; }
+        .shipping-table th:nth-child(2) { background-color: #e74c3c; }
+        .shipping-table th:nth-child(3) { background-color: #9b59b6; }
+        .shipping-table th:nth-child(4) { background-color: #2ecc71; }
         
         /* 4. データ行のデザイン */
         .shipping-table td {
             padding: 15px 10px;
             text-align: center;
             background-color: #ffffff; 
-            font-size: 1.2rem; 
+            /* ★ フォントサイズ拡大 */
+            font-size: 1.4rem; 
             font-weight: bold;
             color: #24292e;
             border-right: 1px solid #e0e0e0;
+            /* ★ 文字間隔調整 */
+            letter-spacing: 0.8px; 
         }
 
         /* 最後の列の境界線は不要 */
@@ -69,6 +76,21 @@
                 background-color: #1f1f1f; 
                 color: #ffffff; 
                 border-right-color: #4d4d4d;
+            }
+        }
+
+        /* 6. 時刻表示部分のスタイル */
+        #current-time-display {
+            width: 100%;
+            text-align: left; 
+            font-weight: bold; 
+            font-size: 1rem; 
+            margin-bottom: 8px; 
+            margin-top: 0;
+            color: #555555;
+            /* ダークモード時の色調整 */
+            @media (prefers-color-scheme: dark) {
+                color: #aaaaaa;
             }
         }
     </style>
@@ -96,14 +118,8 @@
                 }
                 const csvText = await response.text();
                 
-                // CSVを行ごとに分割し、最初のデータ行（日付が入っている行）を取得
                 const rows = csvText.trim().split('\n');
-                // CSVはカンマ区切り（,）で、データは2行目（インデックス1）にあると仮定します。
                 const dataRow = rows.length > 1 ? rows[1].split(',') : [];
-
-                // セルの位置（スプレッドシートの列インデックスからCSVの配列インデックスに変換）
-                // B2=1, D2=3, G2=6, I2=8, K2=10
-                // (CSVは0から始まるため、A=0, B=1, C=2, D=3...と数えます)
 
                 const parsedData = {
                     today: dataRow[1] || '---',       // B列 (Index 1)
@@ -121,11 +137,25 @@
                     '<p style="color: #e74c3c; text-align: center;">データを読み込めませんでした。スプシの公開設定を確認してください。</p>';
             }
         }
+        
+        // リアルタイム時刻更新ロジック (★ここを追加★)
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('ja-JP', { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit' 
+            });
+            
+            const timeElement = document.getElementById('current-time-display');
+            if (timeElement) {
+                timeElement.textContent = `現在の時刻: ${timeString}`;
+            }
+        }
 
         // HTMLレンダリングロジック（時間判定含む）
         function renderWidget(data) {
             const now = new Date();
-            // 15時30分を判定 (時*60 + 分)
             const CUTOFF_TIME_MINUTES = 15 * 60 + 30; 
             const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
             const isAfterCutoff = currentTimeMinutes >= CUTOFF_TIME_MINUTES;
@@ -151,6 +181,8 @@
             // 3. HTMLテーブルを生成
             const container = document.getElementById('widget-container');
             container.innerHTML = `
+                <p id="current-time-display">
+                    </p>
                 <table class="shipping-table">
                     <thead>
                         <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
@@ -160,11 +192,19 @@
                     </tbody>
                 </table>
             `;
+            
+            // 初期表示後に時刻を更新
+            updateTime();
         }
 
-        // ページロード時と1分ごとに実行
-        fetchAndParseData();
-        setInterval(fetchAndParseData, 60000); // 60秒ごとに更新
+        // 初期実行
+        fetchAndParseData(); // ページロード時にデータ取得と初期レンダリング
+        updateTime(); // 初期時刻表示
+
+        // 定期更新: 60秒ごとにデータ取得と再レンダリング
+        setInterval(fetchAndParseData, 60000); 
+        // 時刻は1秒ごとに更新 (リアルタイム感UP)
+        setInterval(updateTime, 1000); 
     </script>
 </body>
 </html>
