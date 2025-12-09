@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Notion Dynamic Shipping Widget</title>
     
-    <style>
+<style>
         /* 1. 全体の設定: Notionに馴染ませる */
         body {
             margin: 0;
@@ -13,17 +13,21 @@
             background-color: transparent; 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             color: #37352f; 
-            display: flex;
-            /* テーブルの上部に時刻を表示するため、Flexboxの方向を縦に変更 */
-            flex-direction: column; 
-            justify-content: center;
-            align-items: center;
+            /* ★ Flexboxの配置設定を削除 */
+            /* display: flex; を削除 */
+            /* flex-direction: column; を削除 */
+            /* justify-content: center; を削除 */
+            /* align-items: center; を削除 */
             min-height: 100px;
         }
         
         /* 2. テーブル（表）のデザイン - 角丸を適用 */
         .shipping-table {
-            width: 100%;
+            /* ★ 幅を制限し、左寄せを確保 */
+            max-width: 700px; /* 必要に応じてこの幅を調整してください */
+            width: 100%; /* max-widthの範囲で幅を確保 */
+            margin: 0; /* body内のマージンをリセット */
+            
             border-collapse: separate; 
             border-spacing: 0; 
             border: 1px solid #e0e0e0; 
@@ -40,8 +44,9 @@
             color: #ffffff; 
             border-right: 1px solid rgba(255, 255, 255, 0.2); 
             border-bottom: 2px solid #e0e0e0;
-            /* ★ 文字間隔調整 */
             letter-spacing: 0.5px; 
+            /* ★ セルの内容を中央寄せに戻す */
+            text-align: center; 
         }
         /* 各列の背景色をスプシに合わせる */
         .shipping-table th:nth-child(1) { background-color: #555555; }
@@ -52,14 +57,13 @@
         /* 4. データ行のデザイン */
         .shipping-table td {
             padding: 15px 10px;
-            text-align: center;
+            /* ★ セルの内容を中央寄せに戻す */
+            text-align: center; 
             background-color: #ffffff; 
-            /* ★ フォントサイズ拡大 */
             font-size: 1.4rem; 
             font-weight: bold;
             color: #24292e;
             border-right: 1px solid #e0e0e0;
-            /* ★ 文字間隔調整 */
             letter-spacing: 0.8px; 
         }
 
@@ -81,14 +85,15 @@
 
         /* 6. 時刻表示部分のスタイル */
         #current-time-display {
-            width: 100%;
+            width: 100%; /* max-widthが適用されるように */
+            max-width: 700px; /* ★ テーブルの幅に合わせる */
             text-align: left; 
             font-weight: bold; 
             font-size: 1rem; 
             margin-bottom: 8px; 
             margin-top: 0;
             color: #555555;
-            /* ダークモード時の色調整 */
+            /* bodyのflexがなくなったため、ここでfloatなどを使わずにwidthを合わせます */
             @media (prefers-color-scheme: dark) {
                 color: #aaaaaa;
             }
@@ -208,3 +213,4 @@
     </script>
 </body>
 </html>
+
